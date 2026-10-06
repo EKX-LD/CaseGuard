@@ -2948,7 +2948,8 @@ function _resolveCurrentUserProfile() {
 
   var email = _getEffectiveEmail();
 
-  /* 1. Find user row in masterlist by email */
+  /* 1. Match login email against UserEmail column (field_8) in the masterlist to find
+        this user's row, then read their SF Name (Title) for case-owner filtering. */
   for (var i = 0; i < masterlistData.length; i++) {
     if ((masterlistData[i].email || "").toLowerCase().trim() === email) {
       _currentUserProfile = masterlistData[i];
@@ -4146,11 +4147,14 @@ function _getBaseFilteredRows() {
     }
     var role = (_currentUserProfile.role || "").trim().toLowerCase();
     if (role === "csr 1") {
-      var me = (_currentUserProfile.sfName || "").trim();
-      rows = rows.filter(function(r){ return own(r) === me; });
+      /* Resolve SF Name via email → UserEmail column (field_8) → Title (SF Name) lookup.
+         Compare case-insensitively so "RIZON, Charme Joy" matches "Rizon, Charme Joy". */
+      var me = (_currentUserProfile.sfName || "").trim().toLowerCase();
+      if (!me) { rows = []; }
+      else { rows = rows.filter(function(r){ return own(r).toLowerCase() === me; }); }
     } else {
-      var peers = _peerSfNames;
-      rows = rows.filter(function(r){ return peers.indexOf(own(r)) >= 0; });
+      var peers = _peerSfNames.map(function(n){ return n.toLowerCase(); });
+      rows = rows.filter(function(r){ return peers.indexOf(own(r).toLowerCase()) >= 0; });
     }
   }
   return rows;
