@@ -2957,6 +2957,20 @@ function _resolveCurrentUserProfile() {
     }
   }
 
+  /* ── Diagnostic log — check browser console to verify the email→SF Name lookup ── */
+  if (_currentUserProfile) {
+    console.log("[CaseGuard] Profile resolved ✓",
+      "| Login email:", email,
+      "| SF Name (Title):", _currentUserProfile.sfName,
+      "| Role:", _currentUserProfile.role);
+  } else {
+    console.warn("[CaseGuard] Profile NOT found ✗",
+      "| Login email used for lookup:", email,
+      "| Total masterlist rows:", masterlistData.length,
+      "| Sample UserEmail values (first 5):",
+      masterlistData.slice(0,5).map(function(r){ return r.email || "(empty)"; }).join(", "));
+  }
+
   /* 2. Build peer list */
   if (_currentUserProfile) {
     var role = (_currentUserProfile.role || "").trim().toLowerCase();
@@ -2986,6 +3000,17 @@ function _resolveCurrentUserProfile() {
 
   _masterlistReady = true;
   _applySendEmailBtnVisibility();
+  /* Hide Agent search for CSR 1 — they can only see their own cases */
+  var _agentSec = document.querySelector(".nb-flt-agent-wrap");
+  var _agentLbl = _agentSec && _agentSec.closest(".nb-flt-section");
+  var _isCsr1   = _currentUserProfile &&
+      (_currentUserProfile.role || "").trim().toLowerCase() === "csr 1";
+  if (_agentLbl) _agentLbl.style.display = _isCsr1 ? "none" : "";
+  if (_isCsr1) {
+    /* Clear any stale agent search value so it doesn't silently block results */
+    var _agEl = document.getElementById("cg-agent-search");
+    if (_agEl) _agEl.value = "";
+  }
   /* Update Overview team count */
   updateOverviewStats();
   /* Refresh admin data status indicator */
@@ -4119,8 +4144,12 @@ function _getBaseFilteredRows() {
       var ownerN2 = cs(_casesColIdx.owner).trim();
       if ((_mlManagerOf[ownerN2] || "") !== mgrVal) return false;
     }
-    /* Agent: substring search on Case Owner */
-    if (agentKw && _casesColIdx.owner !== undefined) {
+    /* Agent: substring search on Case Owner.
+       Skipped for CSR 1 — their role filter already scopes them to their
+       own cases; the agent box is for supervisors / managers only. */
+    var _skipAgent = (_currentUserProfile &&
+      (_currentUserProfile.role || "").trim().toLowerCase() === "csr 1");
+    if (agentKw && !_skipAgent && _casesColIdx.owner !== undefined) {
       if (cs(_casesColIdx.owner).toLowerCase().indexOf(agentKw) < 0) return false;
     }
     if (months.length   && _casesColIdx.date    !== undefined) {
@@ -6714,8 +6743,10 @@ function applyFilters() {
       var oN2 = cellStr(_casesColIdx.owner).trim();
       if ((_mlManagerOf[oN2] || "") !== mgrVal) continue;
     }
-    /* agent: substring search on Case Owner */
-    if (agentKw && _casesColIdx.owner !== undefined) {
+    /* agent: substring search on Case Owner — skip for CSR 1 */
+    var _skipAgentEx = (_currentUserProfile &&
+      (_currentUserProfile.role || "").trim().toLowerCase() === "csr 1");
+    if (agentKw && !_skipAgentEx && _casesColIdx.owner !== undefined) {
       if (cellStr(_casesColIdx.owner).toLowerCase().indexOf(agentKw) < 0) continue;
     }
     /* month */
